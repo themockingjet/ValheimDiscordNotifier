@@ -1,0 +1,9 @@
+{
+  "name": "ValheimDiscordNotifier",
+  "version_number": "0.1.0",
+  "website_url": "https://github.com/hexium/ValheimDiscordNotifier",
+  "description": "Server-only Discord webhook notifications when a Valheim server becomes ready or stops.",
+  "dependencies": [
+    "denikson-BepInExPack_Valheim-5.4.2202"
+  ]
+}
