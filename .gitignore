@@ -1,6 +1,6 @@
-# Build output
-[Bb]in/
-[Oo]bj/
+bin/
+obj/
+release/
 
 # Visual Studio and user-specific settings
 .vs/
@@ -14,3 +14,8 @@
 *.pdb
 *.mdb
 *.zip
+*.sha256
+
+# Local Valheim and BepInEx references must stay outside the repository.
+managed/
+BepInEx/

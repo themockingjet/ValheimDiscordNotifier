@@ -15,7 +15,7 @@ namespace ValheimDiscordNotifier
     {
         public const string PluginGuid = "io.hexium.valheim.discordnotifier";
         public const string PluginName = "Valheim Discord Notifier";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginVersion = "0.1.1";
 
         private const int DefaultTimeoutSeconds = 5;
         private const int MinimumTimeoutSeconds = 1;

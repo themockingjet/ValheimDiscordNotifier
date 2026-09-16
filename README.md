@@ -1,133 +1,83 @@
 # Valheim Discord Notifier
 
-A small, server-only BepInEx plugin that sends Discord webhook notifications
-when a Valheim dedicated server becomes ready and when it begins a normal
-shutdown. A systemd restart produces one stopping notification before the
-server exits and one ready notification after the replacement server finishes
-starting.
+Valheim Discord Notifier is a server-only BepInEx plugin that sends Discord
+webhook notifications when a dedicated Valheim server becomes ready and when
+normal shutdown begins. It does not relay chat or provide remote control.
 
-## Scope
+## Development setup
 
-This plugin intentionally does only lifecycle webhook notifications:
-
-- no chat relay or in-game chat changes;
-- no client installation or client configuration;
-- no Discord bot token;
-- no remote start, stop, or restart controls;
-- no watchdog, restart timer, or auto-restart wrapper.
-
-Webhook delivery is always best effort. A missing or invalid endpoint, a
-Discord error, or a network timeout is logged by BepInEx and never throws out
-of Valheim's startup or shutdown lifecycle path.
-
-## Installation
-
-1. Install BepInEx 5 for Valheim.
-2. Copy `plugins/ValheimDiscordNotifier.dll` from the release ZIP into the
-   server's `BepInEx/plugins/` directory.
-3. Start the dedicated server once. This creates the persistent server-local
-   configuration file
-   `BepInEx/config/io.hexium.valheim.discordnotifier.cfg`.
-4. Stop the server normally, edit that file on the server to add its Discord
-   webhook URL, then start it again.
-
-The release ZIP contains no configuration file and no webhook URL. Do not put
-a webhook URL in a public repository, mod pack, or shared default config.
-
-## Configuration
-
-The generated `BepInEx/config/io.hexium.valheim.discordnotifier.cfg` is the
-persistent override location: BepInEx keeps it across plugin upgrades. Set the
-webhook only there, with restrictive filesystem permissions appropriate for
-the account that runs the server.
-
-```ini
-[Discord]
-## HTTPS Discord webhook endpoint. It is intentionally blank by default; configure it only in this server's persistent BepInEx config.
-# Setting type: String
-# Default value:
-WebhookUrl = https://discord.com/api/webhooks/WEBHOOK_ID/WEBHOOK_TOKEN
-
-## Webhook timeout in seconds. Values outside 1 through 30 use the safe default of 5 seconds.
-# Setting type: Int32
-# Default value: 5
-TimeoutSeconds = 5
-
-[Messages]
-ServerReady = Valheim server is ready.
-ServerStopping = Valheim server is stopping.
-```
-
-`Discord.WebhookUrl` must be an absolute HTTPS URL. The plugin rejects empty,
-HTTP, malformed, and user-info URLs without attempting a request. The timeout
-is bounded to 1 through 30 seconds; an out-of-range value logs a warning and
-uses 5 seconds. Messages are trimmed and limited to Discord's 2,000-character
-content limit.
-
-The example URL is a placeholder, not a usable credential. Treat the complete
-real webhook URL as a secret.
-
-## Lifecycle behavior
-
-The ready notification is issued after Valheim's `ZNet.OnGenerationFinished`
-lifecycle callback for a dedicated server. The normal stop notification is
-issued as `ZNet.Shutdown` begins, with an application-quit fallback. Duplicate
-callbacks produce at most one notification per process for each event.
-
-The shutdown request runs synchronously so the normal shutdown path has an
-opportunity to send it before the process exits. It is capped by
-`Discord.TimeoutSeconds`; all delivery failures are caught and logged, then
-the normal shutdown continues. A forced kill, crash, power loss, or host
-failure cannot reliably emit a notification and is outside this plugin's
-scope.
-
-## Using it with systemd and Valheim Lifecycle Announcer
-
-This plugin does not install a systemd unit, `ExecStop` hook, timer, helper,
-or restart policy. Keep using the existing
-[Valheim Lifecycle Announcer](https://github.com/hexium/ValheimLifecycleAnnouncer)
-systemd drop-in and local Unix-socket helper for in-game restart warnings.
-
-With that architecture, systemd runs the announcer's `ExecStop=` warning
-sequence before it asks Valheim to stop. Valheim then executes `ZNet.Shutdown`,
-which sends this plugin's single Discord stopping notification. On a systemd
-restart, the next process sends the ready notification after its world is
-ready. Do not add a second `ExecStop=` or restart wrapper for this plugin.
-
-Because the lifecycle announcer's warning sequence can take several minutes,
-retain its existing `TimeoutStopSec` configuration. This notifier adds at
-most its configured 1--30 second webhook timeout to the normal Valheim
-shutdown path.
-
-## Building and packaging
-
-Build with the same external references used by the Lifecycle Announcer:
+Load the shared Valheim reference environment and run the standard validation
+and release workflow from the repository root. Make targets automatically load
+`$HOME/.config/valheim-dev/env.sh` when it exists; source that file manually
+only for direct shell commands outside Make:
 
 ```sh
-xbuild ValheimDiscordNotifier.csproj \
-  /p:Configuration=Release \
-  /p:BepInExDir=/path/to/BepInEx \
-  /p:GameManagedDir=/path/to/valheim_server_Data/Managed
+make preflight
+make build
+make package
+make verify-release
 ```
 
-Create the Thunderstore/Hexium-ready archive from the repository root:
+The package is written to
+`release/ValheimDiscordNotifier-0.1.1.zip`. Its root contains only the
+Thunderstore metadata, icon, changelog, and `ValheimDiscordNotifier.dll`.
 
-```sh
-stage="$(mktemp -d)"
-mkdir -p "$stage/plugins"
-cp manifest.json README.md icon.png "$stage/"
-cp bin/Release/ValheimDiscordNotifier.dll "$stage/plugins/"
-(cd "$stage" && zip -r "$OLDPWD/ValheimDiscordNotifier-0.1.0.zip" manifest.json README.md icon.png plugins)
-rm -f "$stage/manifest.json" "$stage/README.md" "$stage/icon.png" "$stage/plugins/ValheimDiscordNotifier.dll"
-rmdir "$stage/plugins" "$stage"
+## Deploy to a test server
+
+Build, verify, and install the local package into the active BepInEx release:
+
+```bash
+make deploy-test-server TEST_SERVER=local
 ```
 
-The ZIP root must contain `manifest.json`, `README.md`, `icon.png`, and the
-DLL at `plugins/ValheimDiscordNotifier.dll`.
+For an SSH test server, use `TEST_SERVER=user@host`. The helper installs the
+root-level DLLs into a separate `local-*` directory under
+`/opt/valheim/modpack/current/BepInEx/plugins`, preserves the server and
+maintenance-timer state without starting or stopping either one, and leaves
+the managed Hexium manifest unchanged.
+Use `TEST_SERVER_SSH_OPTIONS="-p 2222"` for a non-default SSH port. Remove
+the temporary install with:
 
-## Compatibility
+```bash
+make remove-test-server TEST_SERVER=local
+```
 
-- **Required:** BepInEx 5 for Valheim
-  (`denikson-BepInExPack_Valheim` 5.4.2202 or compatible).
-- **Server only:** clients do not need this mod.
-- **Webhook:** an HTTPS endpoint compatible with Discord incoming webhooks.
+The installer never calls `systemctl`. To batch-install several mods and
+restart once, stop the server and timer yourself, run this command from each
+mod repository, then start them once:
+
+```bash
+sudo systemctl stop valheim-restart.timer
+sudo systemctl stop valheim.service
+make deploy-test-server TEST_SERVER=local
+# Repeat from each mod repository.
+sudo systemctl start valheim.service
+sudo systemctl start valheim-restart.timer
+```
+
+Set `TEST_SERVER_SUDO=` when running directly as root. Use
+`TEST_PLUGIN_DIR=local-OtherName` to keep multiple local builds separate.
+
+## Project layout
+
+- `src/valheim-discord-notifier/`: plugin source, manual assembly metadata,
+  and the SDK-style project.
+- `Thunderstore/`: package manifest, user documentation, changelog, and icon.
+- `docs/`: architecture, compatibility, and icon guidance.
+- `scripts/`: reference setup, build, package, and release verification.
+- `release/`: generated local build and package output; it is ignored by Git.
+
+The build uses the shared `VALHEIM_MANAGED_PATH` and `BEPINEX_PATH`
+environment variables. Valheim and BepInEx assemblies remain outside this
+repository.
+
+## Scope and security
+
+Webhook URLs remain blank by default and are configured only in the
+server-local BepInEx configuration file. Never commit or distribute a real
+webhook URL. The plugin validates HTTPS endpoints, rejects malformed and
+user-info URLs, bounds request timeouts, limits Discord message content, and
+keeps delivery best effort so network failures cannot interrupt Valheim.
+
+Clients do not install this plugin, and the project deliberately has no
+ServerSync dependency or client version handshake.
