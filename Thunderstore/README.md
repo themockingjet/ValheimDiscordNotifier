@@ -99,24 +99,6 @@ retain its existing `TimeoutStopSec` configuration. This notifier adds at
 most its configured 1--30 second webhook timeout to the normal Valheim
 shutdown path.
 
-## Building and packaging
-
-Build and verify the package from the repository root with the shared Valheim
-reference environment:
-
-```sh
-source "$HOME/.config/valheim-dev/env.sh"
-make preflight
-make build
-make package
-make verify-release
-```
-
-The generated ZIP root contains exactly `manifest.json`, `README.md`,
-`CHANGELOG.md`, `icon.png`, and `ValheimDiscordNotifier.dll`. It contains no
-configuration file, game or loader assemblies, ServerSync assembly, or
-webhook secret.
-
 ## Compatibility
 
 - **Required:** BepInEx 5 for Valheim
