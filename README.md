@@ -19,7 +19,7 @@ make verify-release
 ```
 
 The package is written to
-`release/ValheimDiscordNotifier-0.1.1.zip`. Its root contains only the
+`release/ValheimDiscordNotifier-0.1.2.zip`. Its root contains only the
 Thunderstore metadata, icon, changelog, and `ValheimDiscordNotifier.dll`.
 
 ## Deploy to a test server

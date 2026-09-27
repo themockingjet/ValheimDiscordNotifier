@@ -16,7 +16,7 @@ explicit product decision.
 - Plugin assembly: `ValheimDiscordNotifier`
 - Root namespace: `ValheimDiscordNotifier`
 - Thunderstore package: `ValheimDiscordNotifier`
-- Version: `0.1.1`
+- Version: `0.1.2`
 - Runtime target: .NET Framework 4.8.
 - Loader: BepInEx 5.
 - Clients do not install this plugin.
